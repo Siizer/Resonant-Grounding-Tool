@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Resonant Grounding Calculator (Educational)</title>
+  <title>Resonant Grounding Calculator</title>
   <script src="https://d3js.org/d3.v7.min.js"></script>
   <style>
     body { font-family: sans-serif; padding: 20px; max-width: 800px; margin: auto; }
@@ -13,33 +13,89 @@
   </style>
 </head>
 <body>
-  <h1>🌐 Resonant Grounding Calculator & Educational Tool</h1>
-  <p>This tool helps determine the correct neutral grounding reactor value for arc suppression via resonant grounding. It assumes a single 3-phase overhead or underground line and uses system capacitance to compute the required neutral inductance.</p>
-  <p><strong>Note:</strong> Series line inductance is intentionally omitted. In resonant grounding, the zero-sequence current path involves shunt capacitance to ground—not the line's series impedance.</p>
+  <div>
+    <label><input type="radio" name="lang" value="en" checked onchange="setLanguage('en')"> English</label>
+    <label><input type="radio" name="lang" value="es" onchange="setLanguage('es')"> Español</label>
+  </div>
 
-  <label>Total Line Length (3-phase, km): <input id="L_total" type="number" value="30"></label>
-  <label>Capacitance per km per phase (nF/km): <input id="C_per_km" type="number" step="0.01" value="0.2"></label>
-  <label>System Frequency (Hz): <input id="freq" type="number" value="50"></label>
-  <label>Damping (% of X<sub>L</sub>): <input id="damping" type="number" step="1" value="5"></label>
-  <label>Connection Type:
-    <select id="connection">
+  <h1 id="title"></h1>
+  <p id="description"></p>
+  <p><strong><span id="noteLabel"></span></strong> <span id="noteText"></span></p>
+
+  <label id="lbl_length">Total Line Length (3-phase, km): <input id="L_total" type="number" value="30"></label>
+  <label id="lbl_cap">Capacitance per km per phase (nF/km): <input id="C_per_km" type="number" step="0.01" value="0.2"></label>
+  <label id="lbl_freq">System Frequency (Hz): <input id="freq" type="number" value="50"></label>
+  <label id="lbl_damp">Damping (% of Xₗ): <input id="damping" type="number" step="1" value="5"></label>
+  <label id="lbl_conn">
+    Connection Type:
+    <select id="connection" onchange="calculate()">
       <option value="parallel">R ‖ L (Parallel)</option>
       <option value="series">R + L (Series)</option>
     </select>
   </label>
 
-  <button onclick="calculate()">Calculate</button>
+  <button onclick="calculate()" id="btn_calc"></button>
 
-  <p><strong>Total zero-sequence capacitance:</strong> <span id="cap"></span> µF</p>
-  <p><strong>Required neutral grounding inductance:</strong> <span id="ind"></span> mH</p>
-  <p><strong>Recommended damping resistor:</strong> <span id="res"></span> Ω</p>
+  <p><strong id="out_cap_label"></strong> <span id="cap"></span> µF</p>
+  <p><strong id="out_ind_label"></strong> <span id="ind"></span> mH</p>
+  <p><strong id="out_res_label"></strong> <span id="res"></span> Ω</p>
 
   <svg id="diagram" width="700" height="320"></svg>
 
   <script>
+    const translations = {
+      en: {
+        title: "🌐 Resonant Grounding Calculator & Educational Tool",
+        description: "This tool helps determine the correct neutral grounding reactor value for arc suppression via resonant grounding. It assumes a single 3-phase overhead or underground line and uses system capacitance to compute the required neutral inductance.",
+        noteLabel: "Note:",
+        noteText: "Series line inductance is intentionally omitted. In resonant grounding, the zero-sequence current path involves shunt capacitance to ground—not the line's series impedance.",
+        lbl_conn: "Connection Type:",
+        btn_calc: "Calculate",
+        out_cap_label: "Total zero-sequence capacitance:",
+        out_ind_label: "Required neutral grounding inductance:",
+        out_res_label: "Recommended damping resistor:",
+        conn_parallel: "R ‖ L (Parallel)",
+        conn_series: "R + L (Series)",
+        svg_label: "Schematic of Single-Line to Ground Fault Path (for Resonant Grounding)",
+        svg_ground: "Ground path"
+      },
+      es: {
+        title: "🌐 Calculadora de Puesta a Tierra Resonante y Herramienta Educativa",
+        description: "Esta herramienta ayuda a determinar el valor correcto del reactor de puesta a tierra para la supresión de arco mediante conexión resonante. Asume una sola línea aérea o subterránea trifásica y usa la capacitancia del sistema para calcular la inductancia neutra requerida.",
+        noteLabel: "Nota:",
+        noteText: "La inductancia en serie de la línea se omite intencionalmente. En la puesta a tierra resonante, la corriente de secuencia cero fluye a través de la capacitancia de derivación a tierra, no a través de la impedancia en serie.",
+        lbl_conn: "Tipo de conexión:",
+        btn_calc: "Calcular",
+        out_cap_label: "Capacitancia total de secuencia cero:",
+        out_ind_label: "Inductancia de puesta a tierra requerida:",
+        out_res_label: "Resistencia de amortiguamiento recomendada:",
+        conn_parallel: "R ‖ L (Paralelo)",
+        conn_series: "R + L (Serie)",
+        svg_label: "Esquema de la trayectoria de falla monofásica a tierra (puesta a tierra resonante)",
+        svg_ground: "Trayectoria de tierra"
+      }
+    };
+
+    function setLanguage(lang) {
+      const t = translations[lang];
+      document.getElementById("title").innerText = t.title;
+      document.getElementById("description").innerText = t.description;
+      document.getElementById("noteLabel").innerText = t.noteLabel;
+      document.getElementById("noteText").innerText = t.noteText;
+      document.getElementById("lbl_conn").childNodes[0].nodeValue = t.lbl_conn;
+      document.getElementById("btn_calc").innerText = t.btn_calc;
+      document.getElementById("out_cap_label").innerText = t.out_cap_label;
+      document.getElementById("out_ind_label").innerText = t.out_ind_label;
+      document.getElementById("out_res_label").innerText = t.out_res_label;
+      document.getElementById("connection").options[0].text = t.conn_parallel;
+      document.getElementById("connection").options[1].text = t.conn_series;
+      svg.select("#svg_label").text(t.svg_label);
+      svg.select("#svg_ground").text(t.svg_ground);
+    }
+
     const svg = d3.select("#diagram");
 
-    svg.append("text").attr("x", 10).attr("y", 15).text("Schematic of Single-Line to Ground Fault Path (for Resonant Grounding)");
+    svg.append("text").attr("id", "svg_label").attr("x", 10).attr("y", 15).text("Schematic of Single-Line to Ground Fault Path (for Resonant Grounding)");
 
     svg.append("line").attr("x1", 80).attr("y1", 40).attr("x2", 220).attr("y2", 40).attr("stroke", "black");
     svg.append("text").attr("x", 30).attr("y", 45).text("3-phase line");
@@ -47,17 +103,34 @@
     svg.append("circle").attr("cx", 220).attr("cy", 140).attr("r", 5).attr("fill", "black");
     svg.append("text").attr("x", 230).attr("y", 145).text("Neutral (N)");
 
-    svg.append("line").attr("x1", 220).attr("y1", 140).attr("x2", 320).attr("y2", 140).attr("stroke", "black");
-    svg.append("rect").attr("x", 320).attr("y", 125).attr("width", 20).attr("height", 30).attr("fill", "#ccc");
-    svg.append("line").attr("x1", 340).attr("y1", 140).attr("x2", 390).attr("y2", 140).attr("stroke", "black");
-    svg.append("rect").attr("x", 390).attr("y", 130).attr("width", 10).attr("height", 20).attr("fill", "red");
-    svg.append("line").attr("x1", 400).attr("y1", 140).attr("x2", 460).attr("y2", 140).attr("stroke", "black");
-    svg.append("line").attr("x1", 460).attr("y1", 140).attr("x2", 460).attr("y2", 180).attr("stroke", "black");
-    svg.append("line").attr("x1", 220).attr("y1", 180).attr("x2", 460).attr("y2", 180).attr("stroke", "black");
-    svg.append("text").attr("x", 250).attr("y", 175).text("Ground path");
+    // Parallel layout: R and L branch to same node
+    const g_parallel = svg.append("g").attr("id", "g_parallel");
+    g_parallel.append("line").attr("x1", 220).attr("y1", 140).attr("x2", 320).attr("y2", 140).attr("stroke", "black");
+    g_parallel.append("rect").attr("x", 320).attr("y", 125).attr("width", 20).attr("height", 30).attr("fill", "#ccc");
+    g_parallel.append("text").attr("x", 325).attr("y", 120).attr("id", "Lval");
 
-    const textL = svg.append("text").attr("x", 325).attr("y", 120).attr("id", "Lval");
-    const textR = svg.append("text").attr("x", 395).attr("y", 125).attr("id", "Rval");
+    g_parallel.append("line").attr("x1", 220).attr("y1", 140).attr("x2", 320).attr("y2", 160).attr("stroke", "black");
+    g_parallel.append("rect").attr("x", 320).attr("y", 160).attr("width", 10).attr("height", 20).attr("fill", "red");
+    g_parallel.append("text").attr("x", 325).attr("y", 195).attr("id", "Rval");
+
+    g_parallel.append("line").attr("x1", 340).attr("y1", 140).attr("x2", 460).attr("y2", 140).attr("stroke", "black");
+    g_parallel.append("line").attr("x1", 220).attr("y1", 180).attr("x2", 460).attr("y2", 180).attr("stroke", "black");
+
+    // Series layout: L then R inline
+    const g_series = svg.append("g").attr("id", "g_series").style("display", "none");
+    g_series.append("line").attr("x1", 220).attr("y1", 140).attr("x2", 320).attr("y2", 140).attr("stroke", "black");
+    g_series.append("rect").attr("x", 320).attr("y", 125).attr("width", 20).attr("height", 30).attr("fill", "#ccc");
+    g_series.append("text").attr("x", 325).attr("y", 120).attr("id", "Lval_s");
+
+    g_series.append("line").attr("x1", 340).attr("y1", 140).attr("x2", 390).attr("y2", 140).attr("stroke", "black");
+    g_series.append("rect").attr("x", 390).attr("y", 130).attr("width", 10).attr("height", 20).attr("fill", "red");
+    g_series.append("text").attr("x", 395).attr("y", 125).attr("id", "Rval_s");
+
+    g_series.append("line").attr("x1", 400).attr("y1", 140).attr("x2", 460).attr("y2", 140).attr("stroke", "black");
+    g_series.append("line").attr("x1", 220).attr("y1", 180).attr("x2", 460).attr("y2", 180).attr("stroke", "black");
+
+    svg.append("line").attr("x1", 460).attr("y1", 140).attr("x2", 460).attr("y2", 180).attr("stroke", "black");
+    svg.append("text").attr("id", "svg_ground").attr("x", 250).attr("y", 175).text("Ground path");
 
     function calculate() {
       const L_km = parseFloat(document.getElementById("L_total").value);
@@ -73,18 +146,25 @@
 
       let R;
       if (connType === "parallel") {
-        R = XL / dampPct;  // Parallel damping: R = XL / damping
+        R = XL / dampPct;
+        d3.select("#g_parallel").style("display", "block");
+        d3.select("#g_series").style("display", "none");
+        d3.select("#Lval").text("L = " + (L * 1e3).toFixed(1) + " mH");
+        d3.select("#Rval").text("R = " + R.toFixed(1) + " Ω");
       } else {
-        R = dampPct * XL;  // Series damping: R = damping × XL
+        R = dampPct * XL;
+        d3.select("#g_parallel").style("display", "none");
+        d3.select("#g_series").style("display", "block");
+        d3.select("#Lval_s").text("L = " + (L * 1e3).toFixed(1) + " mH");
+        d3.select("#Rval_s").text("R = " + R.toFixed(1) + " Ω");
       }
 
       document.getElementById("cap").innerText = (C_total * 1e6).toFixed(3);
       document.getElementById("ind").innerText = (L * 1e3).toFixed(3);
       document.getElementById("res").innerText = R.toFixed(2);
-
-      textL.text("L = " + (L * 1e3).toFixed(1) + " mH");
-      textR.text("R = " + R.toFixed(1) + " Ω (" + (connType === "parallel" ? "‖" : "+") + " L)");
     }
+
+    setLanguage('en');
   </script>
 </body>
 </html>
